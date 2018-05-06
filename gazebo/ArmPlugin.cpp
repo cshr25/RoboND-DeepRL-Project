@@ -37,8 +37,8 @@
 
 #define INPUT_WIDTH   512
 #define INPUT_HEIGHT  512
-#define OPTIMIZER "None"
-#define LEARNING_RATE 0.0f
+#define OPTIMIZER "RMSprop"
+#define LEARNING_RATE 0.01f
 #define REPLAY_MEMORY 10000
 #define BATCH_SIZE 8
 #define USE_LSTM false
@@ -49,8 +49,8 @@
 /
 */
 
-#define REWARD_WIN  0.0f
-#define REWARD_LOSS -0.0f
+#define REWARD_WIN  1.0f
+#define REWARD_LOSS -1.0f
 
 // Define Object Names
 #define WORLD_NAME "arm_world"
@@ -137,6 +137,7 @@ void ArmPlugin::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
 	/ TODO - Subscribe to camera topic
 	/
 	*/
+	gazebo::transport::SubscriberPtr sub = node->Subscribe("/gazebo/arm_world/camera/link/camera/image", ArmPlugin::onCameraMsg, this);
 	
 	//cameraSub = None;
 
@@ -147,6 +148,7 @@ void ArmPlugin::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
 	/ TODO - Subscribe to prop collision topic
 	/
 	*/
+	gazebo::transport::SubscriberPtr sub = node->Subscribe("/gazebo/arm_world/tube/tube_link/my_contact", ArmPlugin::onCollisionMsg, this);
 	
 	//collisionSub = None;
 
@@ -160,13 +162,16 @@ bool ArmPlugin::createAgent()
 {
 	if( agent != NULL )
 		return true;
-
-			
+	
 	/*
 	/ TODO - Create DQN Agent
 	/
 	*/
-	
+	dqnAgent* agent = dqnAgent::Create(INPUT_WIDTH, INPUT_HEIGHT, 
+                       INPUT_CHANNELS, 6, OPTIMIZER, 
+                       LEARNING_RATE, REPLAY_MEMORY, BATCH_SIZE, 
+                       GAMMA, EPS_START, EPS_END, EPS_DECAY,
+                       USE_LSTM, LSTM_SIZE, ALLOW_RANDOM, DEBUG_DQN);
 	agent = NULL;
 
 	if( !agent )
@@ -354,8 +359,10 @@ bool ArmPlugin::updateAgent()
 	/ TODO - Increase or decrease the joint position based on whether the action is even or odd
 	/
 	*/
-	float joint = 0.0; // TODO - Set joint position based on whether action is even or odd.
-
+	if( action%2==0)
+		float joint = joint+actionJointDelta; // TODO - Set joint position based on whether action is even or odd.
+	else
+		float joint =  joint-actionJointDelta;
 	// limit the joint to the specified range
 	if( joint < JOINT_MIN )
 		joint = JOINT_MIN;
@@ -578,27 +585,26 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 		/
 		*/
 		
-		
-		/*if(checkGroundContact)
+		checkGroundContact = gripper.min.z<=groundContact;
+		if(checkGroundContact)
 		{
 						
 			if(DEBUG){printf("GROUND CONTACT, EOE\n");}
 
-			rewardHistory = None;
-			newReward     = None;
-			endEpisode    = None;
+			rewardHistory = REWARD_LOSS;
+			newReward     = True;
+			endEpisode    = True;
 		}
-		*/
+		
 		
 		/*
 		/ TODO - Issue an interim reward based on the distance to the object
 		/
-		*/ 
-		
-		/*
+		*/ 		
+
 		if(!checkGroundContact)
 		{
-			const float distGoal = 0; // compute the reward from distance to the goal
+			const float distGoal = BoxDistance(gripper,prop); // compute the reward from distance to the goal
 
 			if(DEBUG){printf("distance('%s', '%s') = %f\n", gripper->GetName().c_str(), prop->model->GetName().c_str(), distGoal);}
 
@@ -606,15 +612,15 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			if( episodeFrames > 1 )
 			{
 				const float distDelta  = lastGoalDistance - distGoal;
-
+				const float alpha = 0.5;
 				// compute the smoothed moving average of the delta of the distance to the goal
-				avgGoalDelta  = 0.0;
-				rewardHistory = None;
-				newReward     = None;	
+				avgGoalDelta  = (rewardHistory * alpha) + (distDelta * (1 - alpha));
+				rewardHistory = avgGoalDelta;
+				newReward     = True;	
 			}
 
 			lastGoalDistance = distGoal;
-		} */
+		} 
 	}
 
 	// issue rewards and train DQN
