@@ -49,8 +49,8 @@
 /
 */
 
-#define REWARD_WIN  1.0f
-#define REWARD_LOSS -1.0f
+#define REWARD_WIN  100.0f
+#define REWARD_LOSS -100.0f
 
 // Define Object Names
 #define WORLD_NAME "arm_world"
@@ -268,7 +268,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		/
 		*/
 		
-		/*
+		collisionCheck = BoxDistance()
 		
 		if (collisionCheck)
 		{
@@ -279,7 +279,7 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 
 			return;
 		}
-		*/
+		
 		
 	}
 }
@@ -585,7 +585,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 		/
 		*/
 		
-		checkGroundContact = gripper.min.z<=groundContact;
+		checkGroundContact = min(gripBBox.min.z<=groundContact);
 		if(checkGroundContact)
 		{
 						
@@ -604,7 +604,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 		if(!checkGroundContact)
 		{
-			const float distGoal = BoxDistance(gripper,prop); // compute the reward from distance to the goal
+			const float distGoal = BoxDistance(propBBox,gripBBox); // compute the reward from distance to the goal
 
 			if(DEBUG){printf("distance('%s', '%s') = %f\n", gripper->GetName().c_str(), prop->model->GetName().c_str(), distGoal);}
 
