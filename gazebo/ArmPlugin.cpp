@@ -267,7 +267,8 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		/ TODO - Check if there is collision between the arm and object, then issue learning reward
 		/
 		*/
-		
+		std::cout<<tube_collision<<endl;
+		/*
 		collisionCheck = BoxDistance()
 		
 		if (collisionCheck)
